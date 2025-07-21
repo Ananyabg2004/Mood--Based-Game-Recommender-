@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mood-Based Game Recommender</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: linear-gradient(to right, #ffecd2, #fcb69f);
+      padding: 30px;
+      overflow: hidden;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      color: #333;
+    }
+
+    .moods {
+      margin: 30px;
+    }
+
+    button {
+      font-size: 1.2rem;
+      margin: 10px;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      background-color: #6c5ce7;
+      color: white;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background-color: #341f97;
+    }
+
+    .game-section {
+      display: none;
+      margin-top: 40px;
+    }
+
+    canvas {
+      border: 1px solid black;
+      background: #f1f1f1;
+    }
+
+    .bird, .dog, .lion {
+      position: absolute;
+      font-size: 2rem;
+      cursor: pointer;
+    }
+
+    .lion {
+      transition: left 0.1s, top 0.1s;
+    }
+  </style>
+</head>
+<body>
+  <h1>Select Your Mood</h1>
+
+  <div class="moods">
+    <button onclick="showGame('happy')">😊 Happy</button>
+    <button onclick="showGame('sad')">😢 Sad</button>
+    <button onclick="showGame('bored')">😐 Bored</button>
+    <button onclick="showGame('angry')">😡 Angry</button>
+  </div>
+
+  <div id="happyGame" class="game-section">
+    <h2>Emoji Catcher</h2>
+    <canvas id="catcherCanvas" width="400" height="400"></canvas>
+    <p>Score: <span id="emojiScore">0</span></p>
+  </div>
+
+  <div id="sadGame" class="game-section">
+    <h2>Memory Match</h2>
+    <p>Time Left: <span id="timeLeft">60</span> seconds</p>
+    <div id="memoryGrid" style="display:grid; grid-template-columns:repeat(4, 60px); gap:10px; justify-content:center;"></div>
+    <p id="matchMessage"></p>
+  </div>
+
+  <div id="boredGame" class="game-section">
+    <h2>🧩 Block Puzzle Game</h2>
+    <canvas id="blockCanvas" width="200" height="400"></canvas>
+    <p>Score: <span id="blockScore">0</span></p>
+  </div>
+
+  <div id="angryGame" class="game-section">
+    <h2>🦁 Lion Chasing Dog Game</h2>
+    <p>Use arrow keys to catch the dog!</p>
+    <p>Score: <span id="chaseScore">0</span></p>
+  </div>
+
+  <script>
+    let emojiAnimation, birdInterval, dogMoveInterval;
+    let birdScore = 0, chaseScore = 0;
+
+    let blockInterval, board, current, blockScore = 0;
+    let memoryTimer; // Declare memoryTimer globally
+
+    function showGame(mood) {
+      document.querySelectorAll('.game-section').forEach(div => div.style.display = 'none');
+      document.querySelectorAll('.bird, .lion, .dog').forEach(e => e.remove());
+      cancelAnimationFrame(emojiAnimation);
+      clearInterval(birdInterval);
+      clearInterval(dogMoveInterval);
+      clearInterval(blockInterval);
+      clearInterval(memoryTimer); // Clear memory game timer
+      document.onkeydown = null;
+
+      if (mood === 'happy') {
+        document.getElementById('happyGame').style.display = 'block';
+        startEmojiCatcher();
+      } else if (mood === 'sad') {
+        document.getElementById('sadGame').style.display = 'block';
+        startMemoryGame();
+      } else if (mood === 'bored') {
+        document.getElementById('boredGame').style.display = 'block';
+        startBlockPuzzle();
+      } else if (mood === 'angry') {
+        document.getElementById('angryGame').style.display = 'block';
+        startLionChase();
+      }
+    }
+
+    // HAPPY
+    function startEmojiCatcher() {
+      const canvas = document.getElementById('catcherCanvas');
+      const ctx = canvas.getContext('2d');
+      const basket = { x: 160, y: 360, w: 80, h: 20 };
+      const items = [
+        { x: Math.random() * 360, y: 0, size: 30, speed: 2, char: '🍎', type: 'good' },
+        { x: Math.random() * 360, y: 0, size: 30, speed: 2.5, char: '💣', type: 'bad' }
+      ];
+      let score = 0;
+      document.getElementById('emojiScore').innerText = score;
+      let gameOverFlag = false;
+
+      document.onkeydown = function(e) {
+        if (gameOverFlag) return;
+        if (e.key === 'ArrowLeft') basket.x -= 20;
+        if (e.key === 'ArrowRight') basket.x += 20;
+        if (basket.x < 0) basket.x = 0;
+        if (basket.x > 320) basket.x = 320;
+      };
+
+      function draw() {
+        if (gameOverFlag) return;
+
+        ctx.clearRect(0, 0, 400, 400);
+        ctx.fillStyle = "#6c5ce7";
+        ctx.fillRect(basket.x, basket.y, basket.w, basket.h);
+
+        items.forEach(item => {
+          ctx.font = item.size + 'px serif';
+          ctx.fillText(item.char, item.x, item.y);
+          item.y += item.speed;
+
+          if (
+            item.y + item.size > basket.y &&
+            item.x > basket.x &&
+            item.x < basket.x + basket.w
+          ) {
+            if (item.type === 'good') {
+              score++;
+              document.getElementById('emojiScore').innerText = score;
+            } else if (item.type === 'bad') {
+              gameOverFlag = true;
+              alert("Game Over! You caught a bomb! Your score: " + score);
+              cancelAnimationFrame(emojiAnimation);
+              return;
+            }
+            item.y = 0;
+            item.x = Math.random() * 360;
+          }
+
+          if (item.y > 400) {
+            item.y = 0;
+            item.x = Math.random() * 360;
+          }
+        });
+
+        emojiAnimation = requestAnimationFrame(draw);
+      }
+
+      draw();
+    }
+
+    // SAD
+    function startMemoryGame() {
+      const grid = document.getElementById('memoryGrid');
+      const message = document.getElementById('matchMessage');
+      const timeLeftDisplay = document.getElementById('timeLeft');
+      grid.innerHTML = '';
+      message.innerText = '';
+      timeLeftDisplay.innerText = 60; // Reset time display
+      let time = 60;
+      let gameActive = true; // New flag to control game state
+
+      const emojis = ['🍕','🍔','🍟','🍩','🍇','🍫','🍎','🍓'];
+      let cards = [...emojis, ...emojis].sort(() => 0.5 - Math.random());
+      let first = null, lock = false, matched = 0;
+
+      // Start the timer
+      memoryTimer = setInterval(() => {
+        if (!gameActive) {
+          clearInterval(memoryTimer);
+          return;
+        }
+        time--;
+        timeLeftDisplay.innerText = time;
+        if (time <= 0) {
+          clearInterval(memoryTimer);
+          gameActive = false;
+          message.innerText = 'Time\'s Up! You ran out of time!';
+          // Disable further clicks
+          document.querySelectorAll('#memoryGrid div').forEach(card => card.onclick = null);
+        }
+      }, 1000);
+
+      cards.forEach(emoji => {
+        const card = document.createElement('div');
+        card.style.cssText = 'width:60px;height:60px;font-size:2rem;background:#6c5ce7;color:white;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+        card.dataset.emoji = emoji;
+        card.innerText = '';
+        card.onclick = () => {
+          if (lock || card.innerText !== '' || !gameActive) return; // Prevent clicks if game inactive
+          card.innerText = emoji;
+          if (!first) {
+            first = card;
+          } else {
+            lock = true;
+            setTimeout(() => {
+              if (first.dataset.emoji === emoji) {
+                matched++;
+                if (matched === emojis.length) {
+                  message.innerText = '🎉 You matched all!';
+                  clearInterval(memoryTimer); // Stop timer on win
+                  gameActive = false; // Set game as inactive
+                }
+              } else {
+                first.innerText = '';
+                card.innerText = '';
+              }
+              first = null;
+              lock = false;
+            }, 600);
+          }
+        };
+        grid.appendChild(card);
+      });
+    }
+
+    // BORED: BLOCK PUZZLE
+    function startBlockPuzzle() {
+      const canvas = document.getElementById('blockCanvas');
+      const ctx = canvas.getContext('2d');
+      const COLS = 10, ROWS = 20, SIZE = 20;
+      blockScore = 0;
+      document.getElementById('blockScore').innerText = blockScore;
+
+      board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+      const SHAPES = [
+        [[1, 1, 1, 1]], // I
+        [[1, 1], [1, 1]], // O
+        [[0, 1, 0], [1, 1, 1]], // T
+        [[1, 1, 0], [0, 1, 1]], // Z
+        [[0, 1, 1], [1, 1, 0]], // S
+        [[1, 0, 0], [1, 1, 1]], // L
+        [[0, 0, 1], [1, 1, 1]], // J
+      ];
+
+      function drawBoard() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            if (board[r][c]) {
+              ctx.fillStyle = '#6c5ce7';
+              ctx.fillRect(c * SIZE, r * SIZE, SIZE, SIZE);
+            }
+          }
+        }
+        drawBlock();
+      }
+
+      function drawBlock() {
+        ctx.fillStyle = 'orange';
+        current.shape.forEach((row, y) => {
+          row.forEach((cell, x) => {
+            if (cell) {
+              ctx.fillRect((current.x + x) * SIZE, (current.y + y) * SIZE, SIZE, SIZE);
+            }
+          });
+        });
+      }
+
+      function collide(x, y, shape) {
+        return shape.some((row, dy) =>
+          row.some((cell, dx) => {
+            const newY = y + dy;
+            const newX = x + dx;
+            return cell && (newY >= ROWS || newX < 0 || newX >= COLS || (board[newY] && board[newY][newX]));
+          })
+        );
+      }
+
+      function merge() {
+        current.shape.forEach((row, y) => {
+          row.forEach((cell, x) => {
+            if (cell) board[current.y + y][current.x + x] = 1;
+          });
+        });
+      }
+
+      function clearLines() {
+        let linesCleared = 0;
+        for (let r = ROWS - 1; r >= 0; r--) {
+            if (board[r].every(cell => cell)) {
+                board.splice(r, 1);
+                board.unshift(Array(COLS).fill(0));
+                linesCleared++;
+                r++;
+            }
+        }
+        if (linesCleared > 0) {
+            blockScore += linesCleared * 10;
+            document.getElementById('blockScore').innerText = blockScore;
+        }
+      }
+
+      function newBlock() {
+        const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+        return { shape, x: Math.floor((COLS - shape[0].length) / 2), y: 0 };
+      }
+
+      function rotate(shape) {
+        const N = shape.length;
+        const M = shape[0].length;
+        let newShape = Array.from({ length: M }, () => Array(N).fill(0));
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < M; c++) {
+            newShape[c][N - 1 - r] = shape[r][c];
+          }
+        }
+        return newShape;
+      }
+
+      function gameOver() {
+        clearInterval(blockInterval);
+        alert("Game Over! Your Score: " + blockScore);
+      }
+
+      function moveDown() {
+        if (!collide(current.x, current.y + 1, current.shape)) {
+          current.y++;
+        } else {
+          merge();
+          clearLines();
+          current = newBlock();
+          if (collide(current.x, current.y, current.shape)) {
+            gameOver();
+          }
+        }
+        drawBoard();
+      }
+
+      current = newBlock();
+      blockInterval = setInterval(moveDown, 500);
+
+      document.onkeydown = function (e) {
+        if (e.key === 'ArrowLeft' && !collide(current.x - 1, current.y, current.shape)) current.x--;
+        if (e.key === 'ArrowRight' && !collide(current.x + 1, current.y, current.shape)) current.x++;
+        if (e.key === 'ArrowDown') moveDown();
+        if (e.key === 'ArrowUp') {
+            const rotated = rotate(current.shape);
+            if (!collide(current.x, current.y, rotated)) {
+                current.shape = rotated;
+            }
+        }
+        drawBoard();
+      };
+
+      drawBoard();
+    }
+
+    // ANGRY: LION CHASING DOG
+    function startLionChase() {
+      chaseScore = 0;
+      document.getElementById('chaseScore').innerText = chaseScore;
+
+      const lion = document.createElement('div');
+      lion.className = 'lion';
+      lion.innerText = '🦁';
+      lion.style.left = '100px';
+      lion.style.top = '100px';
+      document.body.appendChild(lion);
+
+      const dog = document.createElement('div');
+      dog.className = 'dog';
+      dog.innerText = '🐶';
+      dog.style.left = Math.random() * (window.innerWidth - 50) + 'px';
+      dog.style.top = Math.random() * (window.innerHeight - 50) + 'px';
+      document.body.appendChild(dog);
+
+      let lionX = 100, lionY = 100;
+
+      document.onkeydown = function(e) {
+        if (e.key === 'ArrowLeft') lionX -= 20;
+        if (e.key === 'ArrowRight') lionX += 20;
+        if (e.key === 'ArrowUp') lionY -= 20;
+        if (e.key === 'ArrowDown') lionY += 20;
+
+        lion.style.left = lionX + 'px';
+        lion.style.top = lionY + 'px';
+
+        const lx = lion.offsetLeft;
+        const ly = lion.offsetTop;
+        const dx = dog.offsetLeft;
+        const dy = dog.offsetTop;
+
+        if (Math.abs(lx - dx) < 40 && Math.abs(ly - dy) < 40) {
+          chaseScore++;
+          document.getElementById('chaseScore').innerText = chaseScore;
+          dog.style.left = Math.random() * (window.innerWidth - 50) + 'px';
+          dog.style.top = Math.random() * (window.innerHeight - 50) + 'px';
+        }
+      };
+    }
+  </script>
+</body>
+</html> 
